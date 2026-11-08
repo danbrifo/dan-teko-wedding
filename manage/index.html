@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Guest Manager</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: one wide working column. Summary tiles on top, a toolbar, then the guest table; insights sit below.
+   Palette follows the wedding site: paper, ink, antique gold, olive. */
+:root {
+  --bg: #EFE6D6; --surface: #F8F3E8; --ink: #2A2823; --muted: #6A6354; --line: #D9CDB5;
+  --gold: #B98B3E; --olive: #404736; --on-olive: #F3ECDD;
+  --yes: #4A6A38; --yes-bg: #DDE5CC; --no: #98483A; --no-bg: #EBD3C9; --wait: #8A6420; --wait-bg: #EEDDB5;
+  --f-serif: 'Playfair Display', Georgia, serif;
+  color-scheme: light;
+  --f-sans: 'Jost', 'Futura', 'Century Gothic', 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-sans); font-size: 16px; line-height: 1.5;
+  padding-block: 32px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+h1, h2 { font-family: var(--f-serif); font-weight: 400; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.1; }
+h2 { font-size: 26px; }
+.eyebrow { font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; }
+header p { margin: 6px 0 0; color: var(--muted); }
+.sync { font-size: 13px; color: var(--muted); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; min-width: 0; }
+.tile b { display: block; font-family: var(--f-serif); font-weight: 400; font-size: 40px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.tile.main { background: var(--olive); color: var(--on-olive); border-color: var(--olive); }
+.tile.main span { color: inherit; opacity: .8; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.bar .grow { flex: 1 1 220px; min-width: 0; }
+input[type=text], input[type=email], input[type=number], select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; }
+textarea { resize: vertical; min-height: 84px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, .row:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip, .btn { font: inherit; font-size: 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); padding: 8px 14px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn { border-radius: 4px; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; padding: 11px 16px; }
+.btn.primary { background: var(--olive); color: var(--on-olive); border-color: var(--olive); }
+.btn.danger { color: var(--no); border-color: var(--no); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.head, .row { display: grid; grid-template-columns: minmax(0, 2.2fr) 120px 70px minmax(0, 1.4fr) minmax(0, 1.4fr) 90px; gap: 14px; align-items: center; padding: 12px 18px; }
+.head { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
+.row { border-bottom: 1px solid var(--line); cursor: pointer; width: 100%; text-align: left; background: none; border-inline: 0; border-top: 0; font: inherit; color: inherit; }
+.row:last-child { border-bottom: 0; }
+.row:hover { background: color-mix(in srgb, var(--gold) 9%, transparent); }
+.row > * { min-width: 0; overflow-wrap: anywhere; }
+.nm { font-weight: 500; }
+.sub { font-size: 13px; color: var(--muted); }
+.pill { display: inline-block; font-size: 12px; letter-spacing: .06em; padding: 3px 10px; border-radius: 999px; }
+.pill.yes { background: var(--yes-bg); color: var(--yes); } .pill.no { background: var(--no-bg); color: var(--no); } .pill.pending { background: var(--wait-bg); color: var(--wait); }
+.num { font-variant-numeric: tabular-nums; }
+.empty { padding: 40px 18px; text-align: center; color: var(--muted); }
+.empty b { display: block; font-family: var(--f-serif); font-weight: 400; font-size: 22px; color: var(--ink); margin-bottom: 6px; }
+.lab { display: none; }
+
+.insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px; min-width: 0; }
+.card h3 { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); font-weight: 500; margin: 0 0 12px; }
+.card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.card li { font-size: 15px; overflow-wrap: anywhere; }
+.card li small { display: block; color: var(--muted); font-size: 13px; }
+.card .none { color: var(--muted); font-size: 14px; }
+
+.overlay { position: fixed; inset: 0; background: rgba(20, 18, 12, .55); display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px; overflow-y: auto; z-index: 50; }
+.overlay[hidden] { display: none; }
+.panel { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; width: 100%; max-width: 620px; padding: 24px; display: flex; flex-direction: column; gap: 14px; margin-block: auto; }
+.panel .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.panel label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); min-width: 0; }
+.panel label input, .panel label select, .panel label textarea { text-transform: none; letter-spacing: normal; font-size: 16px; color: var(--ink); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; align-items: center; }
+.actions .left { margin-right: auto; }
+.hint { font-size: 14px; color: var(--muted); margin: 0; }
+.preview { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; font-size: 15px; }
+.preview dl { margin: 0; display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; }
+.preview dt { color: var(--muted); font-size: 13px; } .preview dd { margin: 0; overflow-wrap: anywhere; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 4px; font-size: 14px; z-index: 60; max-width: calc(100% - 32px); }
+.notice { background: var(--wait-bg); color: var(--wait); border-radius: 4px; padding: 12px 16px; font-size: 15px; }
+
+@media (max-width: 760px) {
+  .head { display: none; }
+  .row { grid-template-columns: 1fr auto; gap: 4px 12px; padding: 14px 16px; }
+  .row .c-count, .row .c-diet, .row .c-hotel, .row .c-side { grid-column: 1 / -1; font-size: 14px; color: var(--muted); }
+  .row .c-count::before { content: "Party of "; } .row .c-diet:not(:empty)::before { content: "Diet: "; } .row .c-hotel:not(:empty)::before { content: "Hotel: "; }
+  .row .c-count, .row .c-diet:empty, .row .c-hotel:empty, .row .c-side:empty { display: none; }
+  .row .c-count { display: block; }
+  .panel .two { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Daniel &amp; Nkateko · 21 February 2027</div>
+      <h1>Guest Manager</h1>
+      <p>Everyone invited, who has replied, and what they need on the day. Replies are due 1 January 2027.</p>
+    </div>
+    <div class="sync" id="sync">Connecting…</div>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <section class="tiles" aria-label="Summary">
+    <div class="tile main"><b id="t-att">0</b><span>People attending</span></div>
+    <div class="tile"><b id="t-yes">0</b><span>Replied yes</span></div>
+    <div class="tile"><b id="t-no">0</b><span>Replied no</span></div>
+    <div class="tile"><b id="t-wait">0</b><span>Awaiting reply</span></div>
+    <div class="tile"><b id="t-total">0</b><span>On the list</span></div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <div class="bar">
+      <div class="grow"><input type="text" id="q" placeholder="Search name, email, hotel or dietary note" aria-label="Search guests"></div>
+      <div class="chips" id="filters" role="group" aria-label="Filter by reply">
+        <button class="chip" type="button" data-f="all" aria-pressed="true">All</button>
+        <button class="chip" type="button" data-f="yes" aria-pressed="false">Attending</button>
+        <button class="chip" type="button" data-f="no" aria-pressed="false">Declined</button>
+        <button class="chip" type="button" data-f="pending" aria-pressed="false">Awaiting</button>
+      </div>
+    </div>
+    <div class="bar">
+      <button class="btn primary" type="button" id="b-paste">Paste an RSVP email</button>
+      <button class="btn" type="button" id="b-add">Add guest</button>
+      <button class="btn" type="button" id="b-import">Import names</button>
+      <button class="btn" type="button" id="b-export">Export CSV</button>
+    </div>
+    <div class="list" id="list" role="list">
+      <div class="head"><span>Guest</span><span>Reply</span><span>Party</span><span>Dietary</span><span>Hotel</span><span>Side</span></div>
+      <div id="rows"></div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <h2>What the replies tell us</h2>
+    <div class="insights">
+      <div class="card"><h3>Dietary needs</h3><ul id="i-diet"></ul></div>
+      <div class="card"><h3>Hotels, for the shuttle</h3><ul id="i-hotel"></ul></div>
+      <div class="card"><h3>Song requests</h3><ul id="i-song"></ul></div>
+      <div class="card"><h3>Messages to the couple</h3><ul id="i-msg"></ul></div>
+    </div>
+  </section>
+</div>
+
+<!-- edit / add guest -->
+<div class="overlay" id="ov-edit" hidden>
+  <form class="panel" id="f-edit" novalidate aria-labelledby="ed-title">
+    <h2 id="ed-title">Guest</h2>
+    <div class="two">
+      <label for="e-name">Full name<input type="text" id="e-name" autocomplete="off"></label>
+      <label for="e-email">Email<input type="email" id="e-email" autocomplete="off"></label>
+    </div>
+    <div class="two">
+      <label for="e-status">Reply<select id="e-status"><option value="pending">Awaiting reply</option><option value="yes">Attending</option><option value="no">Declined</option></select></label>
+      <label for="e-count">People in the party<input type="number" id="e-count" min="1" max="12" value="1"></label>
+    </div>
+    <label for="e-extra">Additional guests (names)<input type="text" id="e-extra" autocomplete="off"></label>
+    <div class="two">
+      <label for="e-side">Whose guest<select id="e-side"><option value="">Not set</option><option>Daniel</option><option>Nkateko</option><option>Both</option></select></label>
+      <label for="e-hotel">Hotel<input type="text" id="e-hotel" autocomplete="off"></label>
+    </div>
+    <label for="e-diet">Dietary requirements<textarea id="e-diet" style="min-height:60px"></textarea></label>
+    <div class="two">
+      <label for="e-song">Song request<input type="text" id="e-song" autocomplete="off"></label>
+      <label for="e-msg">Message to the couple<input type="text" id="e-msg" autocomplete="off"></label>
+    </div>
+    <label for="e-notes">Private notes<textarea id="e-notes" style="min-height:60px" placeholder="Only you see this"></textarea></label>
+    <p class="hint" id="e-err" role="alert" style="color:var(--no)" hidden></p>
+    <div class="actions">
+      <button class="btn danger left" type="button" id="e-del" hidden>Delete guest</button>
+      <button class="btn" type="button" id="e-cancel">Cancel</button>
+      <button class="btn primary" type="submit" id="e-save">Save</button>
+    </div>
+  </form>
+</div>
+
+<!-- paste RSVP email -->
+<div class="overlay" id="ov-paste" hidden>
+  <div class="panel" role="dialog" aria-labelledby="p-title">
+    <h2 id="p-title">Paste an RSVP email</h2>
+    <p class="hint">Copy the text of a reply that arrived by email, starting at the line that says RSVP. If the guest is already on the list, their row is updated instead of duplicated.</p>
+    <textarea id="p-text" style="min-height:180px" placeholder="RSVP — Daniel &amp; Nkateko, 21 February 2027&#10;Name: …&#10;Email: …&#10;Response: Joyfully accepts"></textarea>
+    <div id="p-prev" class="preview" hidden></div>
+    <p class="hint" id="p-err" style="color:var(--no)" role="alert" hidden></p>
+    <div class="actions">
+      <button class="btn" type="button" id="p-cancel">Cancel</button>
+      <button class="btn" type="button" id="p-read">Read email</button>
+      <button class="btn primary" type="button" id="p-save" disabled>Add to list</button>
+    </div>
+  </div>
+</div>
+
+<!-- import names -->
+<div class="overlay" id="ov-import" hidden>
+  <div class="panel" role="dialog" aria-labelledby="i-title">
+    <h2 id="i-title">Import names</h2>
+    <p class="hint">One guest per line. Add an email and a side after the name if you have them, separated by commas, for example <em>Ama Mensah, ama@example.com, Nkateko</em>. They appear as awaiting a reply.</p>
+    <textarea id="im-text" style="min-height:200px" placeholder="Ama Mensah, ama@example.com, Nkateko&#10;Thabo Dlamini"></textarea>
+    <p class="hint" id="im-count"></p>
+    <div class="actions">
+      <button class="btn" type="button" id="im-cancel">Cancel</button>
+      <button class="btn primary" type="button" id="im-save" disabled>Add to list</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-gate" style="align-items:center" hidden>
+  <form class="panel" id="f-gate" style="max-width:420px" aria-labelledby="g-title">
+    <h2 id="g-title">Guest Manager</h2>
+    <p class="hint" id="g-hint">Enter your admin key to see the guest list. It is the ADMIN_KEY you set in the Google script.</p>
+    <label for="g-key">Admin key<input type="password" id="g-key" autocomplete="current-password"></label>
+    <p class="hint" id="g-err" style="color:var(--no)" role="alert" hidden></p>
+    <div class="actions"><button class="btn primary" type="submit" id="g-go">Open</button></div>
+  </form>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var guests = [];          // [{id, ...fields}]
+  var db = null, col = null, canWrite = true, filter = 'all', editingId = null, parsed = null, imported = [];
+
+  function esc(s) { return String(s == null ? '' : s); }
+  function toast(msg) { var t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(function () { t.hidden = true; }, 2800); }
+  function show(el, on) { el.hidden = !on; }
+  function norm(s) { return esc(s).trim().toLowerCase(); }
+  function statusLabel(s) { return s === 'yes' ? 'Attending' : s === 'no' ? 'Declined' : 'Awaiting'; }
+  function headcount(g) { return g.status === 'yes' ? Math.max(1, Number(g.count) || 1) : 0; }
+
+  /* ---------- rendering ---------- */
+  function render() {
+    var q = norm($('#q').value);
+    var att = 0, yes = 0, no = 0, wait = 0;
+    guests.forEach(function (g) { if (g.status === 'yes') { yes++; att += headcount(g); } else if (g.status === 'no') no++; else wait++; });
+    $('#t-att').textContent = att; $('#t-yes').textContent = yes; $('#t-no').textContent = no; $('#t-wait').textContent = wait; $('#t-total').textContent = guests.length;
+
+    var view = guests.filter(function (g) {
+      if (filter !== 'all' && g.status !== filter) return false;
+      if (!q) return true;
+      return [g.name, g.email, g.hotel, g.diet, g.extra, g.side].some(function (v) { return norm(v).indexOf(q) > -1; });
+    }).sort(function (a, b) { return norm(a.name) < norm(b.name) ? -1 : 1; });
+
+    var rows = $('#rows'); rows.textContent = '';
+    if (!view.length) {
+      var e = document.createElement('div'); e.className = 'empty';
+      var b = document.createElement('b'); var p = document.createElement('span');
+      if (guests.length) { b.textContent = 'No guests match.'; p.textContent = 'Clear the search or pick another filter.'; }
+      else { b.textContent = 'No guests yet.'; p.textContent = 'Paste an RSVP email, import your invite list, or add a guest by hand.'; }
+      e.appendChild(b); e.appendChild(p); rows.appendChild(e);
+    }
+    view.forEach(function (g) {
+      var r = document.createElement('button'); r.type = 'button'; r.className = 'row'; r.setAttribute('role', 'listitem');
+      var c1 = document.createElement('div');
+      var n = document.createElement('div'); n.className = 'nm'; n.textContent = g.name || 'Unnamed';
+      var s = document.createElement('div'); s.className = 'sub'; s.textContent = [g.email, g.extra ? '+ ' + g.extra : ''].filter(Boolean).join(' · ');
+      c1.appendChild(n); if (s.textContent) c1.appendChild(s);
+      var c2 = document.createElement('div'); var pl = document.createElement('span'); pl.className = 'pill ' + (g.status || 'pending'); pl.textContent = statusLabel(g.status); c2.appendChild(pl);
+      var c3 = document.createElement('div'); c3.className = 'c-count num'; c3.textContent = g.status === 'no' ? '' : String(Math.max(1, Number(g.count) || 1));
+      var c4 = document.createElement('div'); c4.className = 'c-diet'; c4.textContent = g.diet || '';
+      var c5 = document.createElement('div'); c5.className = 'c-hotel'; c5.textContent = g.hotel || '';
+      var c6 = document.createElement('div'); c6.className = 'c-side'; c6.textContent = g.side || '';
+      [c1, c2, c3, c4, c5, c6].forEach(function (c) { r.appendChild(c); });
+      r.addEventListener('click', function () { openEdit(g.id); });
+      rows.appendChild(r);
+    });
+
+    // insights (attending guests only, except messages)
+    var going = guests.filter(function (g) { return g.status === 'yes'; });
+    fill('#i-diet', going.filter(function (g) { return norm(g.diet); }).map(function (g) { return [g.name, g.diet]; }), 'No dietary needs reported.');
+    var byHotel = {};
+    going.forEach(function (g) { var h = esc(g.hotel).trim(); if (h) { var k = h.toLowerCase(); (byHotel[k] = byHotel[k] || { label: h, n: 0 }).n += headcount(g); } });
+    fill('#i-hotel', Object.keys(byHotel).sort().map(function (k) { return [byHotel[k].label, byHotel[k].n + (byHotel[k].n === 1 ? ' person' : ' people')]; }), 'No hotels given yet.');
+    fill('#i-song', guests.filter(function (g) { return norm(g.song); }).map(function (g) { return [g.song, g.name]; }), 'No song requests yet.');
+    fill('#i-msg', guests.filter(function (g) { return norm(g.message); }).map(function (g) { return [g.message, g.name]; }), 'No messages yet.');
+  }
+  function fill(sel, items, none) {
+    var ul = $(sel); ul.textContent = '';
+    if (!items.length) { var li = document.createElement('li'); li.className = 'none'; li.textContent = none; ul.appendChild(li); return; }
+    items.forEach(function (it) {
+      var li = document.createElement('li'); li.textContent = it[0];
+      var sm = document.createElement('small'); sm.textContent = it[1]; li.appendChild(sm); ul.appendChild(li);
+    });
+  }
+
+  /* ---------- data ---------- */
+  var API = '';            // set by the site builder: your Google Apps Script web app URL
+  var adminKey = '';
+  function call(action, extra) {
+    var body = Object.assign({ action: action, key: adminKey }, extra || {});
+    return fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (!j.ok) { var e = new Error(j.error || 'failed'); e.code = j.error; throw e; } return j; });
+  }
+  function clean(g) {
+    return { key: g.key || '', name: esc(g.name).trim(), email: esc(g.email).trim(), status: g.status || 'pending', count: Math.max(1, Math.min(12, Number(g.count) || 1)),
+      extra: esc(g.extra).trim(), side: esc(g.side), hotel: esc(g.hotel).trim(), diet: esc(g.diet).trim(), song: esc(g.song).trim(),
+      message: esc(g.message).trim(), notes: esc(g.notes).trim() };
+  }
+  function save(id, data) {
+    var d = clean(data); if (id) d.key = id;
+    return call('upsert', { guest: d }).then(refresh).catch(function (e) { toast(e.code === 'auth' ? 'Admin key rejected.' : 'Could not save. Try again.'); throw e; });
+  }
+  function existing(id) { var g = guests.find(function (x) { return x.id === id; }); if (!g) return {}; var c = Object.assign({}, g); delete c.id; return c; }
+  function findMatch(name, email) {
+    var e = norm(email), n = norm(name);
+    return guests.find(function (g) { return (e && norm(g.email) === e) || (n && norm(g.name) === n); });
+  }
+  function refresh() {
+    return call('list').then(function (j) {
+      guests = j.guests || [];
+      $('#sync').textContent = 'Synced ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + guests.length + (guests.length === 1 ? ' guest' : ' guests');
+      render();
+    });
+  }
+
+  /* ---------- edit dialog ---------- */
+  var F = ['name', 'email', 'status', 'count', 'extra', 'side', 'hotel', 'diet', 'song', 'msg', 'notes'];
+  function openEdit(id) {
+    editingId = id || null;
+    var g = id ? guests.find(function (x) { return x.id === id; }) : { status: 'pending', count: 1 };
+    if (!g) return;
+    $('#ed-title').textContent = id ? 'Edit guest' : 'Add guest';
+    $('#e-name').value = g.name || ''; $('#e-email').value = g.email || ''; $('#e-status').value = g.status || 'pending'; $('#e-count').value = g.count || 1;
+    $('#e-extra').value = g.extra || ''; $('#e-side').value = g.side || ''; $('#e-hotel').value = g.hotel || ''; $('#e-diet').value = g.diet || '';
+    $('#e-song').value = g.song || ''; $('#e-msg').value = g.message || ''; $('#e-notes').value = g.notes || '';
+    show($('#e-err'), false); show($('#e-del'), !!id); $('#e-del').textContent = 'Delete guest'; $('#e-del').dataset.arm = '';
+    $('#e-save').disabled = !canWrite; $('#e-del').disabled = !canWrite;
+    show($('#ov-edit'), true); $('#e-name').focus();
+  }
+  function closeAll() { ['#ov-edit', '#ov-paste', '#ov-import'].forEach(function (s) { show($(s), false); }); }
+  $('#f-edit').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var name = $('#e-name').value.trim(), email = $('#e-email').value.trim(), err = $('#e-err');
+    if (!name) { err.textContent = 'Enter the guest’s name.'; show(err, true); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'That email address looks incomplete.'; show(err, true); return; }
+    $('#e-save').disabled = true;
+    save(editingId, { name: name, email: email, status: $('#e-status').value, count: $('#e-count').value, extra: $('#e-extra').value, side: $('#e-side').value,
+      hotel: $('#e-hotel').value, diet: $('#e-diet').value, song: $('#e-song').value, message: $('#e-msg').value, notes: $('#e-notes').value })
+      .then(function () { closeAll(); toast('Saved.'); }, function () { $('#e-save').disabled = false; });
+  });
+  $('#e-status').addEventListener('change', function () { if (this.value === 'yes' && !Number($('#e-count').value)) $('#e-count').value = 1; });
+  $('#e-cancel').addEventListener('click', closeAll);
+  $('#e-del').addEventListener('click', function () {
+    var b = this;
+    if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'Click again to delete'; return; }
+    call('delete', { id: editingId }).then(refresh).then(function () { closeAll(); toast('Guest deleted.'); }, function () { toast('Could not delete. Try again.'); });
+  });
+
+  /* ---------- paste an RSVP email ---------- */
+  function parseEmail(text) {
+    var keys = { 'name': 'name', 'email': 'email', 'response': 'response', 'total attending': 'total', 'additional guests': 'extra', 'dietary': 'diet',
+      'song request': 'song', 'hotel': 'hotel', 'message': 'message' };
+    var out = {}, cur = null;
+    text.replace(/\r/g, '').split('\n').forEach(function (line) {
+      var m = line.match(/^\s*([A-Za-z ]+?)\s*:\s*(.*)$/);
+      var k = m && keys[m[1].trim().toLowerCase()];
+      if (k) { cur = k; out[k] = m[2].trim(); }
+      else if (cur === 'message' && line.trim()) out.message += ' ' + line.trim();
+    });
+    if (!out.name) return null;
+    var r = norm(out.response);
+    var status = /declin|regret|cannot|can't|no$/.test(r) ? 'no' : /accept|joy|yes|attend/.test(r) ? 'yes' : 'pending';
+    return { name: out.name, email: out.email || '', status: status, count: Number(out.total) || 1, extra: out.extra || '', diet: out.diet || '', song: out.song || '', hotel: out.hotel || '', message: out.message || '' };
+  }
+  $('#b-paste').addEventListener('click', function () { $('#p-text').value = ''; parsed = null; show($('#p-prev'), false); show($('#p-err'), false); $('#p-save').disabled = true; show($('#ov-paste'), true); $('#p-text').focus(); });
+  $('#p-read').addEventListener('click', function () {
+    var r = parseEmail($('#p-text').value), prev = $('#p-prev'), err = $('#p-err');
+    prev.textContent = ''; parsed = null; $('#p-save').disabled = true;
+    if (!r) { err.textContent = 'No name found. Paste the lines that start with Name:, Email: and Response:.'; show(err, true); show(prev, false); return; }
+    show(err, false); parsed = r;
+    var dl = document.createElement('dl');
+    [['Name', r.name], ['Email', r.email], ['Reply', statusLabel(r.status)], ['Party', r.status === 'yes' ? String(r.count) : ''], ['Additional', r.extra], ['Dietary', r.diet], ['Hotel', r.hotel], ['Song', r.song], ['Message', r.message]]
+      .forEach(function (p) { if (!p[1]) return; var dt = document.createElement('dt'); dt.textContent = p[0]; var dd = document.createElement('dd'); dd.textContent = p[1]; dl.appendChild(dt); dl.appendChild(dd); });
+    prev.appendChild(dl);
+    var m = findMatch(r.name, r.email);
+    var note = document.createElement('p'); note.className = 'hint'; note.style.marginTop = '10px';
+    note.textContent = m ? 'This guest is already on the list. Saving updates their row.' : 'This guest is new. Saving adds them to the list.';
+    prev.appendChild(note); show(prev, true); $('#p-save').disabled = !canWrite;
+  });
+  $('#p-save').addEventListener('click', function () {
+    if (!parsed) return;
+    var m = findMatch(parsed.name, parsed.email), btn = this; btn.disabled = true;
+    var data = Object.assign({}, m ? existing(m.id) : {}, parsed);
+    save(m ? m.id : null, data).then(function () { closeAll(); toast(m ? 'Reply recorded for ' + parsed.name + '.' : parsed.name + ' added.'); }, function () { btn.disabled = false; });
+  });
+  $('#p-cancel').addEventListener('click', closeAll);
+
+  /* ---------- import names ---------- */
+  function readImport() {
+    imported = $('#im-text').value.split('\n').map(function (l) { return l.split(',').map(function (x) { return x.trim(); }); })
+      .filter(function (p) { return p[0]; })
+      .map(function (p) { var side = /^(daniel|nkateko|both)$/i.test(p[2] || '') ? p[2][0].toUpperCase() + p[2].slice(1).toLowerCase() : ''; return { name: p[0], email: /@/.test(p[1] || '') ? p[1] : '', side: side, status: 'pending', count: 1 }; })
+      .filter(function (g) { return !findMatch(g.name, g.email); });
+    $('#im-count').textContent = imported.length ? imported.length + (imported.length === 1 ? ' new guest will be added.' : ' new guests will be added.') : ($('#im-text').value.trim() ? 'Everyone here is already on the list.' : '');
+    $('#im-save').disabled = !imported.length || !canWrite;
+  }
+  $('#b-import').addEventListener('click', function () { $('#im-text').value = ''; imported = []; $('#im-count').textContent = ''; $('#im-save').disabled = true; show($('#ov-import'), true); $('#im-text').focus(); });
+  $('#im-text').addEventListener('input', readImport);
+  $('#im-cancel').addEventListener('click', closeAll);
+  $('#im-save').addEventListener('click', function () {
+    var btn = this; btn.disabled = true;
+    call('import', { guests: imported }).then(function (j) { return refresh().then(function () { closeAll(); toast(j.added + (j.added === 1 ? ' guest added.' : ' guests added.')); }); }, function () { btn.disabled = false; toast('Could not import. Try again.'); });
+  });
+
+  /* ---------- export ---------- */
+  $('#b-export').addEventListener('click', function () {
+    var cols = [['Name', 'name'], ['Email', 'email'], ['Reply', 'status'], ['People', 'count'], ['Additional guests', 'extra'], ['Whose guest', 'side'], ['Hotel', 'hotel'], ['Dietary', 'diet'], ['Song', 'song'], ['Message', 'message'], ['Notes', 'notes']];
+    function cell(v) { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; }
+    var lines = [cols.map(function (c) { return cell(c[0]); }).join(',')];
+    guests.slice().sort(function (a, b) { return norm(a.name) < norm(b.name) ? -1 : 1; }).forEach(function (g) {
+      lines.push(cols.map(function (c) { return cell(c[1] === 'status' ? statusLabel(g.status) : c[1] === 'count' ? (g.status === 'no' ? 0 : g.count) : g[c[1]]); }).join(','));
+    });
+    var blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = 'guest-list.csv'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000); toast('Guest list downloaded.');
+  });
+
+  /* ---------- wiring ---------- */
+  $('#b-add').addEventListener('click', function () { openEdit(null); });
+  $('#q').addEventListener('input', render);
+  $('#filters').addEventListener('click', function (e) {
+    var b = e.target.closest('.chip'); if (!b) return; filter = b.dataset.f;
+    [].forEach.call(document.querySelectorAll('.chip'), function (c) { c.setAttribute('aria-pressed', String(c === b)); }); render();
+  });
+  ['#ov-edit', '#ov-paste', '#ov-import'].forEach(function (s) { $(s).addEventListener('mousedown', function (e) { if (e.target === this) closeAll(); }); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(); });
+
+  render();
+
+  /* ---------- sign in and sync ---------- */
+  var note = $('#notice'), timer = null;
+  function lock(msg) { show($('#ov-gate'), true); $('#g-err').textContent = msg || ''; show($('#g-err'), !!msg); $('#g-key').focus(); }
+  function start() {
+    $('#sync').textContent = 'Syncing…';
+    refresh().then(function () {
+      show($('#ov-gate'), false);
+      try { localStorage.setItem('gm-key', adminKey); } catch (e) {}
+      clearInterval(timer); timer = setInterval(function () { if (!document.hidden && !document.querySelector('.overlay:not([hidden])')) refresh().catch(function () {}); }, 60000);
+    }, function (e) {
+      adminKey = ''; try { localStorage.removeItem('gm-key'); } catch (x) {}
+      $('#sync').textContent = 'Not signed in';
+      lock(e.code === 'auth' ? 'That key is not right. Check the ADMIN_KEY in your Google script.' : 'Could not reach your Google script. Check the web app URL and try again.');
+    });
+  }
+  $('#f-gate').addEventListener('submit', function (e) { e.preventDefault(); adminKey = $('#g-key').value.trim(); if (adminKey) start(); });
+  if (!API) { $('#sync').textContent = 'Not set up'; note.textContent = 'This page is not connected to your Google Sheet yet. The web app URL still needs to be added.'; show(note, true); }
+  else { try { adminKey = localStorage.getItem('gm-key') || ''; } catch (e) {} if (adminKey) start(); else lock(); }
+})();
+</script>
+
+</body>
+</html>
