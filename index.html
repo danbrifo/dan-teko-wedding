@@ -1136,6 +1136,7 @@
           <a class="red-btn" id="mailBtn" href="#" target="_blank" rel="noopener">Send my RSVP by email</a>
           <button class="red-btn outline" type="button" id="copySum">Copy details</button>
         </div>
+        <p class="rs-edit" id="editWrap" style="display:none;margin-top:22px;font-size:14.5px">Need to change your reply? <button type="button" id="editRsvp" style="background:none;border:0;padding:0;font:inherit;color:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Update it here</button></p>
         <p class="mail-note" style="margin-top:18px;font-size:14.5px">If the email button does nothing, copy the details above and send them to <strong style="font-weight:500;user-select:all" id="mailShow"></strong>.</p>
       </div>
   </div>
@@ -1386,6 +1387,7 @@
     var first = name.split(' ')[0];
 
     function done(sent) {
+      if (sent) { try { localStorage.setItem('rsvpDone', JSON.stringify({ n: first, a: attending })); } catch (_) {} }
       $('#summary').textContent = body;
       $('#sTitle').textContent = attending === 'yes' ? 'See you there.' : 'We\u2019ll miss you.';
       $('#sText').textContent = sent
@@ -1411,6 +1413,27 @@
       timer
     ]).then(function () { done(true); }, function () { send.disabled = false; send.textContent = label; done(false); });
   });
+
+  // If this browser already sent an RSVP, show a thank-you instead of the form (guest can still update it).
+  (function () {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem('rsvpDone') || 'null'); } catch (_) {}
+    if (!saved) return;
+    $('#sTitle').textContent = 'Thank you.';
+    $('#sText').textContent = 'Thanks, we\u2019ve got your RSVP' + (saved.n ? ', ' + saved.n : '') + '.';
+    $$('#success .form-foot, #success .mail-note').forEach(function (el) { el.style.display = 'none'; });
+    $('#summary').style.display = 'none';
+    $('#editWrap').style.display = '';
+    form.style.display = 'none';
+    $('#success').classList.add('show');
+    $('#editRsvp').addEventListener('click', function () {
+      try { localStorage.removeItem('rsvpDone'); } catch (_) {}
+      $('#success').classList.remove('show');
+      $('#editWrap').style.display = 'none';
+      form.classList.remove('gone'); form.style.display = '';
+      var n = $('#name'); if (n) n.focus();
+    });
+  })();
 
   $('#copySum').addEventListener('click', function () {
     var b = this;
